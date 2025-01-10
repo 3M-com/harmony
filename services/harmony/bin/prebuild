@@ -1,0 +1,29 @@
+#!/bin/bash
+#
+# sets up the project to be ready for compiling and building docker image
+#
+
+rm -rf built/*
+
+# Copy database files, excluding SQLite files
+mkdir -p built/db
+rsync -a --exclude='*.sqlite3' ../../db/ built/db/
+
+# Copy db directory to built/services/harmony to make knex migrations work
+mkdir -p built/services/harmony/db
+rsync -a --exclude='*.sqlite3' ../../db/ built/services/harmony/db/
+
+# Copy specific script to built directory
+mkdir -p built/bin
+cp -r ../../bin/start-harmony-in-container built/bin/
+
+# Copy the services configuration file
+mkdir -p built/config
+cp ../../config/services.yml built/config/
+
+# Copy util package, excluding certain directories
+mkdir -p built/packages/util
+rsync -a --exclude='node_modules' --exclude='built' --exclude='test' --exclude='coverage' ../../packages/util/ built/packages/util/
+
+# Copy everything else in services/harmony with exclusions
+rsync -a --exclude='test' --exclude='node_modules' --exclude='coverage' --exclude='built' --exclude='bin' --exclude='fixtures' ./ built/services/harmony/

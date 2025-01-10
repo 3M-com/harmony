@@ -2,6 +2,88 @@
 Any changes to the environment variables will be documented in this file in chronological
 order with the most recent changes first.
 
+# 2024-12-04
+### Added
+- USE_EDL_CLIENT_APP - whether to use an EDL client application to enable admin and deployment endpoints and allow OAuth workflows.
+- EDL_TOKEN - required if USE_EDL_CLIENT_APP is set to false. An EDL token to use for all requests to the CMR and to download data in backend services.
+
+### Changed
+- OAUTH_CLIENT_ID, OAUTH_UID, OAUTH_PASSWORD, and OAUTH_REDIRECT_URI are no longer required if USE_EDL_CLIENT_APP is false.
+
+# 2024-12-03
+### Added
+- Added enviroment defaults for Harmony SMAP L2 Gridding Service
+
+# 2024-11-05
+### Added
+- LABEL_FILTER_COMPLETION_COUNT - the max number of labels to retrieve to populate label filter auto-complete
+
+# 2024-10-23
+### Added
+- LABELS_ALLOW_LIST - comma-separated list of values that are explicitly allowed for labels
+- LABELS_FORBID_LIST - comma-separated list of values that are explicitly forbidden for labels
+
+## 2024-08-30
+### Added
+- Added environment defaults for NET2COG service
+
+## 2024-07-31
+### Changed
+- HYBIG\_INVOCATION\_ARGS changed to call new `harmony_service` package to support V2 HyBIG.
+
+## 2024-04-25
+### Changed
+- HARMONY_REGRIDDER_IMAGE - Updated to point to ghcr.io hosted image.
+- HARMONY_REGRIDDER_SERVICE_QUEUE_URLS - Updates to point to ghcr.io image.
+
+## 2024-02-19
+### Changed
+- TRAJECTORY_SUBSETTER_LIMITS_MEMORY - Increased to 8Gi to accommodate large GEDI L1B files.
+
+
+## 2024-01-23
+### Changed
+- HYBIG_IMAGE to point to ghcr.io hosted image.
+- HYBIG_SERVICE_QUEUE_URLS to point to ghcr.io hosted image.
+
+## 2024-01-04
+### Changed
+- SWOT_REPROJECT_IMAGE to SWATH_PROJECTOR_IMAGE
+- SWOT_REPROJECT_REQUESTS_CPU to SWATH_PROJECTOR_REQUESTS_CPU
+- SWOT_REPROJECT_REQUESTS_MEMORY to SWATH_PROJECTOR_REQUESTS_MEMORY
+- SWOT_REPROJECT_LIMITS_CPU to SWATH_PROJECTOR_LIMITS_CPU
+- SWOT_REPROJECT_LIMITS_MEMORY to SWATH_PROJECTOR_LIMITS_MEMORY
+- SWOT_REPROJECT_INVOCATION_ARGS to SWATH_PROJECTOR_INVOCATION_ARGS
+- SWOT_REPROJECT_SERVICE_QUEUE_URLS to SWATH_PROJECTOR_SERVICE_QUEUE_URLS
+- SWATH_PROJECTOR_IMAGE to point to ghcr.io hosted image.
+- SWATH_PROJECTOR_INVOCATION_ARGS to use new image entry point.
+- SWATH_PROJECTOR_SERVICE_QUEUE_URLS to change references from "swot-reproject" to "swath-projector".
+
+## 2024-01-03
+### Changed
+- HOSS_LIMITS_MEMORY - Increased to 8Gi to accommodate filling for bounding boxes crossing grid edge for large granules.
+
+## 2024-01-03
+### Changed
+- MAX_DOWNLOAD_RETRIES - Decreased to 3.
+
+## 2023-10-09
+### Changed
+- VAR_SUBSETTER_IMAGE to HOSS_IMAGE
+- VAR_SUBSETTER_REQUESTS_CPU to HOSS_REQUESTS_CPU
+- VAR_SUBSETTER_REQUESTS_MEMORY to HOSS_REQUESTS_MEMORY
+- VAR_SUBSETTER_LIMITS_CPU to HOSS_LIMITS_CPU
+- VAR_SUBSETTER_LIMITS_MEMORY to HOSS_LIMITS_MEMORY
+- VAR_SUBSETTER_INVOCATION_ARGS to HOSS_INVOCATION_ARGS
+- VAR_SUBSETTER_SERVICE_QUEUE_URLS to HOSS_SERVICE_QUEUE_URLS
+- HOSS_IMAGE to point to ghcr.io hosted image.
+- HOSS_INVOCATION_ARGS to use new image entry point.
+- HOSS_SERVICE_QUEUE_URLS to change references from "var-subsetter" to "hoss".
+
+## 2023-08-11
+### Changed
+Split env-defaults into separate files based on use
+
 ## 2022-12-15
 ### Changes
 - HARMONY_NETCDF_TO_ZARR_IMAGE - Update to point to ghcr.io hosted images.

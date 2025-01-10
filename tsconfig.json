@@ -1,19 +1,18 @@
 {
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-      "module": "commonjs",
-      "baseUrl": ".",
-      "moduleResolution": "node",
-      "target": "ES2021",
-      "esModuleInterop": true,
-      "allowJs": true,
-      "noImplicitAny": false,
-      "resolveJsonModule": true,
-      "sourceMap": true,
-      "outDir": "built"
+    "resolveJsonModule": true,
   },
   "include": [
-    "./app/**/*", "./test/**/*", "./tasks/**/app/**/*", "./tasks/**/test/**/*",
-    "./kubernetes-services/**/app/**/*", "./kubernetes-services/**/test/**/*",
-    "scripts/*"],
-  "exclude": ["./tasks/**/built/**/*", "./kubernetes-services/**/built/**/*"]
+    "./services/**/app/**/*",
+    "./services/**/test/**/*",
+    "scripts/*",
+    "./packages/**/*",
+    "./packages/**/test/**/*",
+    "./example/**/*"
+  ],
+  "exclude": [
+    "./services/**/built/**/*",
+    "./packages/**/built/**/*"
+  ]
 }

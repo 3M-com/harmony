@@ -18,10 +18,10 @@ jobs:
       packages: write
       contents: read
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 16.x
+          node-version: 22.x
       - name: Log into registry
         run: echo "${{ secrets.DOCKERHUB }}" | docker login -u "${DOCKER_USER}" --password-stdin
       - name: Setup Node
@@ -37,10 +37,7 @@ jobs:
           [ "${VERSION}" == "main" ] && VERSION=latest
           [ "${VERSION}" == "harmony-412" ] && VERSION=latest
 
-          # build and publish harmony
-          VERSION="${VERSION}" npm run build
-          VERSION="${VERSION}" npm run publish
-          # build and publish images for all tasks
+          # build and publish images for all services
           VERSION="${VERSION}" lerna run build
           VERSION="${VERSION}" lerna run publish
 

@@ -40,14 +40,21 @@ done
 DRIVER_DEFAULT=docker
 
 DRIVER=${DRIVER:-$DRIVER_DEFAULT}
+COMMAND_LINE_KUBE_CONTEXT=$KUBE_CONTEXT
 
-source "env-defaults"
+source "./services/harmony/env-defaults"
 source ".env"
 [[ -n $KUBERNETES_URL ]] && alias kubectl="kubectl -s $KUBERNETES_URL"
+
+if [ -n "$COMMAND_LINE_KUBE_CONTEXT" ]; then :
+  KUBE_CONTEXT=$COMMAND_LINE_KUBE_CONTEXT
+fi
 
 if [ -n "$KUBE_CONTEXT" ]; then :
 elif kubectl config get-contexts docker-desktop &> /dev/null ; then
   KUBE_CONTEXT='docker-desktop'
+elif kubectl config get-contexts colima &> /dev/null ; then
+  KUBE_CONTEXT='colima'
 elif command -v minikube &> /dev/null ; then
   KUBE_CONTEXT='minikube'
 else
@@ -114,6 +121,10 @@ POSTGRES_PORT="${POSTGRES_PORT:-5432}"
 bin/port-forward start localstack 4566:4566 4572:4566 4592:4566
 bin/port-forward start postgres ${POSTGRES_PORT}:5432
 
+# Try to run migrations when not using harmony in a box. If using harmony in a box and this fails,
+# the migrations will run during the bin/start-harmony script.
+DATABASE_TYPE=postgres DATABASE_URL="postgresql://postgres:password@localhost:${POSTGRES_PORT}/postgres" npx knex --cwd db migrate:latest || true
+
 echo ''
 echo 'Localstack has started at http://localhost:4566/'
-echo 'Postgres has started at localhost:5432'
+echo "Postgres has started at localhost:${POSTGRES_PORT}"

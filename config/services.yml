@@ -23,14 +23,41 @@ x-turbo-config: &default-turbo-config
 
 https://cmr.earthdata.nasa.gov:
 
-  - name: gesdisc/giovanni
+  - name: harmony/download
+    description: Service that performs no processing, it only returns download links for all of the matched granules from the CMR.
+    data_operation_version: '0.20.0'
+    type:
+      <<: *default-turbo-config
+      params:
+        <<: *default-turbo-params
+        env:
+          <<: *default-turbo-env
+          STAGING_PATH: public/harmony/download
+    maximum_sync_granules: 0
+    capabilities:
+      subsetting:
+        bbox: false
+        variable: false
+        multiple_variable: false
+      reprojection: false
+      concatenation: false
+      all_collections: true
+      output_formats:
+        - application/netcdf # Incorrect mime-type, remove when no longer needed
+        - application/x-netcdf4
+    steps:
+      - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
+
+  - name: giovanni-time-series-adapter
     description: |
-      A service to compose the Giovanni URL and invoke Giovanni service to produce output file to visualize, analyze,
+      A service to compose the Giovanni URL for a time series and invoke Giovanni service to produce output file to visualize, analyze,
       and access vast amounts of Earth science remote sensing data without having to download the data.
-    data_operation_version: '0.17.0'
-    enabled: !Env ${EXAMPLE_SERVICES}
+    data_operation_version: '0.20.0'
     has_granule_limit: false
-    default_sync: true
+    # Replace the next two lines to default to synchronous once bearer tokens are supported by Giovanni
+    # default_sync: true
+    maximum_sync_granules: -1
     type:
       <<: *default-turbo-config
       params:
@@ -38,33 +65,21 @@ https://cmr.earthdata.nasa.gov:
         env:
           <<: *default-turbo-env
           STAGING_PATH: public/gesdisc/giovanni
-    umm_s: S2701049693-XYZ_PROV
+    umm_s: S2739607260-GES_DISC
     collections:
-      - id: C1598621093-GES_DISC
+      - id: C1276812830-GES_DISC
         variables:
-        - V2296949098-GES_DISC
-        - V2296949172-GES_DISC
-        - V2296949242-GES_DISC
-        - V2296949978-GES_DISC
-        - V2296949195-GES_DISC
-        - V2296949905-GES_DISC
-        - V2296949990-GES_DISC
-        - V2296949860-GES_DISC
-        - V2296949142-GES_DISC
-        - V2296949998-GES_DISC
+        - V3171509330-GES_DISC
     capabilities:
-      concatenation: true
-      concatenate_by_default: true
       subsetting:
         temporal: true
-        bbox: true
         variable: true
         multiple_variable: false
       output_formats:
         - text/csv
     steps:
-      - image: !Env ${GIOVANNI_ADAPTER_IMAGE}
-        operations: ['concatenate', 'variableSubset', 'temporalSubset']
+      - image: !Env ${GIOVANNI_TIME_SERIES_ADAPTER_IMAGE}
+        operations: ['variableSubset', 'temporalSubset']
 
   - name: podaac/l2-subsetter
     description: |
@@ -75,7 +90,7 @@ https://cmr.earthdata.nasa.gov:
       * Variable subsetting supported
       * works with hierarchical groups
       Outputs netcdf4.
-    data_operation_version: '0.17.0'
+    data_operation_version: '0.20.0'
     type:
       <<: *default-turbo-config
       params:
@@ -95,13 +110,14 @@ https://cmr.earthdata.nasa.gov:
         - application/x-netcdf4
     steps:
       - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
       - image: !Env ${PODAAC_L2_SUBSETTER_IMAGE}
 
   - name: podaac/concise
     description: |
       Service capabale of "concatenating" multiple netCDF files into a single netCDF files.
       The resulting file has an extra dimension with size equal to the number of input files where each slice in that dimension corresponds to the data from one of the inputs.
-    data_operation_version: '0.17.0'
+    data_operation_version: '0.20.0'
     type:
       <<: *default-turbo-config
       params:
@@ -112,6 +128,7 @@ https://cmr.earthdata.nasa.gov:
     umm_s: S2153799015-POCLOUD
     capabilities:
       concatenation: true
+      concatenate_by_default: true
       subsetting:
         bbox: false
         variable: false
@@ -120,6 +137,7 @@ https://cmr.earthdata.nasa.gov:
         - application/x-netcdf4
     steps:
       - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
       - image: !Env ${PODAAC_CONCISE_IMAGE}
         is_batched: true
         operations: ['concatenate']
@@ -138,7 +156,7 @@ https://cmr.earthdata.nasa.gov:
       #### PODAAC concise services
       Service capabale of "concatenating" multiple netCDF files into a single netCDF files.
       The resulting file has an extra dimension with size equal to the number of input files where each slice in that dimension corresponds to the data from one of the inputs.
-    data_operation_version: '0.17.0'
+    data_operation_version: '0.20.0'
     type:
       <<: *default-turbo-config
       params:
@@ -146,9 +164,10 @@ https://cmr.earthdata.nasa.gov:
         env:
           <<: *default-turbo-env
           STAGING_PATH: public/podaac/l2-subsetter-concise
-    umm_s: S2227193226-POCLOUD
+    umm_s: S2800188133-POCLOUD
     capabilities:
       concatenation: true
+      concatenate_by_default: true
       subsetting:
         temporal: true
         bbox: true
@@ -158,6 +177,7 @@ https://cmr.earthdata.nasa.gov:
         - application/x-netcdf4
     steps:
       - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
       - image: !Env ${PODAAC_L2_SUBSETTER_IMAGE}
         operations: ['spatialSubset', 'variableSubset', 'temporalSubset']
         conditional:
@@ -173,7 +193,7 @@ https://cmr.earthdata.nasa.gov:
       A service that supports L2 segmented trajectory (**not swath**) data.
       Currently uses the same C++ binary as is on-premises in SDPS, to offer variable, temporal, bounding box spatial and polygon spatial subsetting.
       **This subsetter also ensures valid segment indices and sizes following transformation.**
-    data_operation_version: '0.17.0'
+    data_operation_version: '0.20.0'
     type:
       <<: *default-turbo-config
       params:
@@ -181,7 +201,7 @@ https://cmr.earthdata.nasa.gov:
         env:
           <<: *default-turbo-env
           STAGING_PATH: public/sds/trajectory-subsetter
-    umm_s: S2232210365-ORNL_CLOUD
+    umm_s: S2836723123-XYZ_PROV
     capabilities:
       subsetting:
         temporal: true
@@ -192,6 +212,7 @@ https://cmr.earthdata.nasa.gov:
         - application/x-hdf
     steps:
       - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
       - image: !Env ${TRAJECTORY_SUBSETTER_IMAGE}
         operations: ['variableSubset', 'spatialSubset', 'shapefileSubset', 'temporalSubset']
 
@@ -203,7 +224,7 @@ https://cmr.earthdata.nasa.gov:
       plus all those that are required to support meaningful downstream operations upon those data (e.g. associated coordinate variables).
 
       This service is currently operated from the same Docker image as the sds/variable-subsetter service.
-    data_operation_version: '0.17.0'
+    data_operation_version: '0.20.0'
     type:
       <<: *default-turbo-config
       params:
@@ -224,7 +245,8 @@ https://cmr.earthdata.nasa.gov:
         - application/x-netcdf4
     steps:
       - image: !Env ${QUERY_CMR_IMAGE}
-      - image: !Env ${VAR_SUBSETTER_IMAGE}
+        is_sequential: true
+      - image: !Env ${HOSS_IMAGE}
         operations: ['variableSubset', 'spatialSubset', 'dimensionSubset', 'shapefileSubset', 'temporalSubset']
       - image: !Env ${SDS_MASKFILL_IMAGE}
         operations: ['shapefileSubset']
@@ -239,7 +261,7 @@ https://cmr.earthdata.nasa.gov:
       plus all those that are required to support meaningful downstream operations upon those data (e.g. associated coordinate variables).
 
       This service is currently operated from the same Docker image as the sds/variable-subsetter service.
-    data_operation_version: '0.17.0'
+    data_operation_version: '0.20.0'
     type:
       <<: *default-turbo-config
       params:
@@ -260,22 +282,100 @@ https://cmr.earthdata.nasa.gov:
         - application/x-netcdf4
     steps:
       - image: !Env ${QUERY_CMR_IMAGE}
-      - image: !Env ${VAR_SUBSETTER_IMAGE}
+        is_sequential: true
+      - image: !Env ${HOSS_IMAGE}
         operations: ['variableSubset', 'spatialSubset', 'dimensionSubset', 'shapefileSubset', 'temporalSubset']
       - image: !Env ${SDS_MASKFILL_IMAGE}
         operations: ['shapefileSubset', 'spatialSubset']
         conditional:
           exists: ['shapefileSubset', 'spatialSubset']
 
-  # OPS GDAL
+  - name: ldds/subset-band-name
+    description: |
+      Subset by Band and Name service capable of subsetting HDF4/HDF-EOS2 SDS variables by name and band.
+    data_operation_version: '0.20.0'
+    type:
+      <<: *default-turbo-config
+      params:
+        <<: *default-turbo-params
+        env:
+          <<: *default-turbo-env
+          STAGING_PATH: public/ldds/subset-band-name
+    umm_s: S3269314724-LAADS
+    maximum_sync_granules: 0
+    capabilities:
+      subsetting:
+        variable: true
+        multiple_variable: true
+      output_formats:
+        - application/x-hdf
+    steps:
+      - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
+      - image: !Env ${SUBSET_BAND_NAME_IMAGE}
+
+  - name: ldds/geoloco
+    description: |
+      Service capable of reprojecting, resampling, regridding, and spatial and SDS subsetting HDF4/HDF-EOS2 SDS variables.
+      The wrapper also retrieves the geolocation file name from the input file Core Metadata and downloads it from S3.
+      Works with L1B-L4 granules (L1B and L2 granule SDSs are automatically regridded with default setting granule resolution
+          and geographic projection).
+    data_operation_version: '0.20.0'
+    type:
+      <<: *default-turbo-config
+      params:
+        <<: *default-turbo-params
+        env:
+          <<: *default-turbo-env
+          STAGING_PATH: public/ldds/geoloco
+    umm_s: S2951645688-LAADS
+    maximum_sync_granules: 0
+    capabilities:
+       subsetting:
+         bbox: true
+         variable: true
+         multiple_variable: true
+       output_formats:
+         - application/x-hdf
+       reprojection: true
+    steps:
+      - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
+      - image: !Env ${GEOLOCO_IMAGE}
+
+  - name: net2cog
+    description: |
+      Converts NetCDF files to COG. Includes extension for running in NASA Harmony. https://github.com/podaac/net2cog
+    data_operation_version: '0.20.0'
+    type:
+      <<: *default-turbo-config
+      params:
+        <<: *default-turbo-params
+        env:
+          <<: *default-turbo-env
+          STAGING_PATH: public/harmony/net2cog
+    umm_s: S3177988677-POCLOUD
+    capabilities:
+      subsetting:
+        variable: true
+      output_formats:
+        # According to https://github.com/opengeospatial/CloudOptimizedGeoTIFF/issues/1 "image/tiff; application=geotiff; profile=cloud-optimized" is the media type that should be used for COG.
+        # pystac agrees https://pystac.readthedocs.io/en/stable/api/media_type.html
+        # Harmony only matches on the part before the first semi-colon
+        - image/tiff
+    steps:
+      - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
+      - image: !Env ${NET2COG_IMAGE}
+
   - name: nasa/harmony-gdal-adapter
     description: |
       Service translating Harmony operations to GDAL commands.
       Supports spatial bounding box, temporal, variable, and shapefile, reprojection,
-      and output to NetCDF4, COG, PNG, and GIF.
+      and output to NetCDF4 or COG.
       Operates on input file types supported by GDAL (most EOSDIS data).
       Most operations assume L3 data, though it is likely that some work on L2.
-    data_operation_version: '0.17.0'
+    data_operation_version: '0.20.0'
     type:
       <<: *default-turbo-config
       params:
@@ -294,18 +394,48 @@ https://cmr.earthdata.nasa.gov:
       output_formats:
         - application/x-netcdf4
         - image/tiff
-        - image/png
-        - image/gif
       reprojection: true
     steps:
       - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
       - image: !Env ${HARMONY_GDAL_ADAPTER_IMAGE}
+
+  - name: sds/HyBIG
+    description: |
+      The Harmony Browse Image Generator (HyBIG) supports the conversion of
+      GeoTIFF inputs to Global Imagery Browse Services (GIBS) compatible PNG or
+      JPEG outputs. This includes, where necessary, conversion to a GIBS
+      supported Coordinate Reference System (CRS). Other projections can be
+      requested, but will not be compatible with GIBS.
+    data_operation_version: '0.18.0'
+    type:
+      <<: *default-turbo-config
+      params:
+        <<: *default-turbo-params
+        env:
+          <<: *default-turbo-env
+          STAGING_PATH: public/sds/hybig
+    umm_s: S2697183066-XYZ_PROV
+    capabilities:
+      subsetting:
+        bbox: false
+        shape: false
+        temporal: false
+        variable: true
+        multiple_variable: false
+      output_formats:
+        - image/png
+        - image/jpeg
+      reprojection: true
+    steps:
+      - image: !Env ${QUERY_CMR_IMAGE}
+      - image: !Env ${HYBIG_IMAGE}
 
   - name: harmony/netcdf-to-zarr
     description: |
       Converts NetCDF4 files to the Zarr format as faithfully as possible, preserving metadata.
       The service attempts to optimize chunking in both time and space via heuristic algorithm in the output Zarr store.
-    data_operation_version: '0.17.0'
+    data_operation_version: '0.20.0'
     type:
       <<: *default-turbo-config
       params:
@@ -313,7 +443,7 @@ https://cmr.earthdata.nasa.gov:
         env:
           <<: *default-turbo-env
           STAGING_PATH: public/harmony/netcdf-to-zarr
-    umm_s: S2009180097-POCLOUD
+    umm_s: S2839491596-XYZ_PROV
     maximum_sync_granules: 0
     capabilities:
       concatenation: true
@@ -324,15 +454,82 @@ https://cmr.earthdata.nasa.gov:
         - application/x-zarr
     steps:
       - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
       - image: !Env ${HARMONY_NETCDF_TO_ZARR_IMAGE}
         is_batched: false
         operations: ['reformat', 'concatenate']
+
+  - name: l2-subsetter-batchee-stitchee-concise
+    description: |
+      ### Subsetter And Multi-dimensional Batched Aggregation in Harmony (SAMBAH)
+      Chained Service of the L2-subsetter, Batchee, STITCHEE, and CONCISE services.
+      Additional documentation [here](https://stitchee.readthedocs.io/en/latest/sambah_readme/).
+      #### L2 swath subsetter (L2-subsetter)
+      * Works with trajectory (1D) and along track/across track data.
+      * Works with netCDF and HDF5 input files.
+      * Supports variable subsetting.
+      * Supports temporal subsetting.
+      * Supports shape subsetting
+      * Works with hierarchical groups.
+      * Outputs netCDF4.
+      #### Batchee
+      * Service groups together filenames so that further operations (such as concatenation) can be performed separately on each group of files.
+      #### STITCH by Extending a dimEnsion (Stitchee)
+      * Service concatenates a group of netCDF data files along an existing dimension.
+      #### CONCatenation SErvice (CONCISE)
+      * Service capable of "concatenating" multiple netCDF files into a single netCDF file.
+      The resulting file has an extra dimension with size equal to the number of input files, where each slice in that dimension corresponds to the data from one of the input files.
+
+    data_operation_version: '0.20.0'
+    type:
+      <<: *default-turbo-config
+      params:
+        <<: *default-turbo-params
+        env:
+          <<: *default-turbo-env
+          STAGING_PATH: public/asdc-trade/l2-subsetter-batchee-stitchee-concise
+    umm_s: S2940253910-LARC_CLOUD
+    capabilities:
+      concatenation: true
+      concatenate_by_default: false
+      extend: true
+      default_extend_dimensions: ['mirror_step']
+      subsetting:
+        bbox: true
+        variable: true
+        temporal: true
+        shape: true
+      output_formats:
+        - application/netcdf4
+      reprojection: false
+    steps:
+      - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
+      - image: !Env ${PODAAC_L2_SUBSETTER_IMAGE}
+        operations: ['spatialSubset', 'shapefileSubset', 'variableSubset', 'temporalSubset']
+        conditional:
+          exists: ['spatialSubset', 'shapefileSubset', 'variableSubset', 'temporalSubset']
+        extra_args:
+          cut: false
+      - image: !Env ${BATCHEE_IMAGE}
+        operations: ['concatenate']
+        conditional:
+          exists: ['concatenate']
+      - image: !Env ${STITCHEE_IMAGE}
+        operations: ['extend']
+        conditional:
+          exists: ['concatenate']
+      - image: !Env ${PODAAC_CONCISE_IMAGE}
+        is_batched: true
+        operations: ['concatenate']
+        conditional:
+          exists: ['concatenate']
 
   - name: harmony/service-example
     description: |
       Reference service that can be used to perform most operations supported by Harmony.
       Useful for testing new API features end-to-end on example data but not meant for production use.
-    data_operation_version: '0.17.0'
+    data_operation_version: '0.20.0'
     type:
       <<: *default-turbo-config
       params:
@@ -353,17 +550,125 @@ https://cmr.earthdata.nasa.gov:
       reprojection: true
     steps:
       - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
       - image: !Env ${HARMONY_SERVICE_EXAMPLE_IMAGE}
+
+  - name: asf/opera-rtc-s1-browse
+    description: Service that generates GIBS-compliant browse imagery for the OPERA_L2_RTC-S1 collection
+    data_operation_version: '0.20.0'
+    type:
+      <<: *default-turbo-config
+      params:
+        <<: *default-turbo-params
+        env:
+          <<: *default-turbo-env
+          STAGING_PATH: public/asf/opera-rtc-s1-browse
+    umm_s: S3295265807-ASF
+    maximum_sync_granules: 0
+    capabilities:
+      concatenation: false
+      subsetting:
+        bbox: false
+        variable: false
+        temporal: false
+      output_formats:
+        - image/png
+      reprojection: true
+    steps:
+      - image: !Env ${QUERY_CMR_IMAGE}
+      - image: !Env ${OPERA_RTC_S1_BROWSE_IMAGE}
+      - image: !Env ${HYBIG_IMAGE}
 
 https://cmr.uat.earthdata.nasa.gov:
 
-  - name: gesdisc/giovanni
+  - name: harmony/download
+    description: Service that performs no processing, it only returns download links for all of the matched granules from the CMR.
+    data_operation_version: '0.20.0'
+    type:
+      <<: *default-turbo-config
+      params:
+        <<: *default-turbo-params
+        env:
+          <<: *default-turbo-env
+          STAGING_PATH: public/harmony/download
+    maximum_sync_granules: 0
+    capabilities:
+      subsetting:
+        bbox: false
+        variable: false
+        multiple_variable: false
+      reprojection: false
+      concatenation: false
+      all_collections: true
+      output_formats:
+        - application/netcdf # Incorrect mime-type, remove when no longer needed
+        - application/x-netcdf4
+    steps:
+      - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
+
+  - name: ldds/subset-band-name
     description: |
-      A service to compose the Giovanni URL and invoke Giovanni service to produce output file to visualize, analyze,
+      Subset by Band and Name service capable of subsetting HDF4/HDF-EOS2 SDS variables by name and band.
+    data_operation_version: '0.20.0'
+    type:
+      <<: *default-turbo-config
+      params:
+        <<: *default-turbo-params
+        env:
+          <<: *default-turbo-env
+          STAGING_PATH: public/ldds/subset-band-name
+    umm_s: S1261503923-LAADSCDUAT
+    maximum_sync_granules: 0
+    capabilities:
+      subsetting:
+        variable: true
+        multiple_variable: true
+      output_formats:
+        - application/x-hdf
+    steps:
+      - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
+      - image: !Env ${SUBSET_BAND_NAME_IMAGE}
+
+  - name: ldds/geoloco
+    description: |
+      Service capable of reprojecting, resampling, regridding, and spatial and SDS subsetting HDF4/HDF-EOS2 SDS variables.
+      The wrapper also retrieves the geolocation file name from the input file Core Metadata and downloads it from S3.
+      Works with L1B-L4 granules (L1B and L2 granule SDSs are automatically regridded with default setting granule resolution
+          and geographic projection).
+    data_operation_version: '0.20.0'
+    type:
+      <<: *default-turbo-config
+      params:
+        <<: *default-turbo-params
+        env:
+          <<: *default-turbo-env
+          STAGING_PATH: public/ldds/geoloco
+    umm_s: S1259233619-LAADSCDUAT
+    maximum_sync_granules: 0
+    capabilities:
+       subsetting:
+         bbox: true
+         variable: true
+         multiple_variable: true
+       output_formats:
+         - application/x-hdf
+       reprojection: true
+    steps:
+      - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
+      - image: !Env ${GEOLOCO_IMAGE}
+
+  - name: giovanni-time-series-adapter
+    description: |
+      A service to compose the Giovanni URL for a time series and invoke Giovanni service to produce output file to visualize, analyze,
       and access vast amounts of Earth science remote sensing data without having to download the data.
-    data_operation_version: '0.17.0'
+    data_operation_version: '0.20.0'
     has_granule_limit: false
-    default_sync: true
+    # Replace the next two lines to default to synchronous once bearer tokens are supported by Giovanni
+    # default_sync: true
+    maximum_sync_granules: -1
     type:
       <<: *default-turbo-config
       params:
@@ -371,33 +676,21 @@ https://cmr.uat.earthdata.nasa.gov:
         env:
           <<: *default-turbo-env
           STAGING_PATH: public/gesdisc/giovanni
-    umm_s: S1258119278-EEDTEST
+    umm_s: S1258984104-GES_DISC
     collections:
-      - id: C1225808238-GES_DISC
+      - id: C1215802935-GES_DISC
         variables:
-        - V1245551685-GES_DISC
-        - V1245551715-GES_DISC
-        - V1245551687-GES_DISC
-        - V1245551691-GES_DISC
-        - V1245551713-GES_DISC
-        - V1245551711-GES_DISC
-        - V1245551709-GES_DISC
-        - V1245551689-GES_DISC
-        - V1245551693-GES_DISC
-        - V1245551717-GES_DISC
+        - V1268438218-GES_DISC
     capabilities:
-      concatenation: true
-      concatenate_by_default: true
       subsetting:
         temporal: true
-        bbox: true
         variable: true
         multiple_variable: false
       output_formats:
         - text/csv
     steps:
-      - image: !Env ${GIOVANNI_ADAPTER_IMAGE}
-        operations: ['concatenate', 'variableSubset', 'temporalSubset']
+      - image: !Env ${GIOVANNI_TIME_SERIES_ADAPTER_IMAGE}
+        operations: ['variableSubset', 'temporalSubset']
 
   - name: podaac/l2-subsetter
     description: |
@@ -408,7 +701,7 @@ https://cmr.uat.earthdata.nasa.gov:
       * Variable subsetting supported
       * works with hierarchical groups
       Outputs netcdf4.
-    data_operation_version: '0.17.0'
+    data_operation_version: '0.20.0'
     type:
       <<: *default-turbo-config
       params:
@@ -428,13 +721,14 @@ https://cmr.uat.earthdata.nasa.gov:
         - application/x-netcdf4
     steps:
       - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
       - image: !Env ${PODAAC_L2_SUBSETTER_IMAGE}
 
   - name: podaac/concise
     description: |
       Service capabale of "concatenating" multiple netCDF files into a single netCDF files.
       The resulting file has an extra dimension with size equal to the number of input files where each slice in that dimension corresponds to the data from one of the inputs.
-    data_operation_version: '0.17.0'
+    data_operation_version: '0.20.0'
     type:
       <<: *default-turbo-config
       params:
@@ -445,6 +739,7 @@ https://cmr.uat.earthdata.nasa.gov:
     umm_s: S1242328818-POCLOUD
     capabilities:
       concatenation: true
+      concatenate_by_default: true
       subsetting:
         bbox: false
         variable: false
@@ -453,6 +748,7 @@ https://cmr.uat.earthdata.nasa.gov:
         - application/x-netcdf4
     steps:
       - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
       - image: !Env ${PODAAC_CONCISE_IMAGE}
         is_batched: true
         operations: ['concatenate']
@@ -471,7 +767,7 @@ https://cmr.uat.earthdata.nasa.gov:
       #### PODAAC concise service
       Service capabale of "concatenating" multiple netCDF files into a single netCDF files.
       The resulting file has an extra dimension with size equal to the number of input files where each slice in that dimension corresponds to the data from one of the inputs.
-    data_operation_version: '0.17.0'
+    data_operation_version: '0.20.0'
     type:
       <<: *default-turbo-config
       params:
@@ -479,9 +775,10 @@ https://cmr.uat.earthdata.nasa.gov:
         env:
           <<: *default-turbo-env
           STAGING_PATH: public/podaac/l2-subsetter-concise
-    umm_s: S1243671015-POCLOUD
+    umm_s: S1261068840-POCLOUD
     capabilities:
       concatenation: true
+      concatenate_by_default: true
       subsetting:
         temporal: true
         bbox: true
@@ -491,6 +788,7 @@ https://cmr.uat.earthdata.nasa.gov:
         - application/x-netcdf4
     steps:
       - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
       - image: !Env ${PODAAC_L2_SUBSETTER_IMAGE}
         operations: ['spatialSubset', 'variableSubset', 'temporalSubset']
         conditional:
@@ -501,18 +799,18 @@ https://cmr.uat.earthdata.nasa.gov:
         conditional:
           exists: ['concatenate']
 
-  - name: sds/swot-reproject
+  - name: sds/swath-projector
     description: |
       Takes NetCDF-4 input files and projects input swath variables to an output grid.
       Target CRS, output grid dimensions, extents and/or resolutions can be specified in the Harmony request.
-    data_operation_version: '0.17.0'
+    data_operation_version: '0.20.0'
     type:
       <<: *default-turbo-config
       params:
         <<: *default-turbo-params
         env:
           <<: *default-turbo-env
-          STAGING_PATH: public/sds/swot-reproject
+          STAGING_PATH: public/sds/swath-projector
     umm_s: S1237974711-EEDTEST
     capabilities:
       subsetting:
@@ -524,12 +822,13 @@ https://cmr.uat.earthdata.nasa.gov:
       reprojection: true
     steps:
       - image: !Env ${QUERY_CMR_IMAGE}
-      - image: !Env ${SWOT_REPROJECT_IMAGE}
+        is_sequential: true
+      - image: !Env ${SWATH_PROJECTOR_IMAGE}
 
   - name: sds/harmony-regridder
     description: |
       The Harmony Regridding Service for L3/L4 collections
-    data_operation_version: '0.17.0'
+    data_operation_version: '0.20.0'
     type:
       <<: *default-turbo-config
       params:
@@ -549,6 +848,7 @@ https://cmr.uat.earthdata.nasa.gov:
       reprojection: true
     steps:
       - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
       - image: !Env ${HARMONY_REGRIDDER_IMAGE}
 
   - name: sds/variable-subsetter
@@ -556,7 +856,7 @@ https://cmr.uat.earthdata.nasa.gov:
       The Variable Subsetter provides _only_ variable subsetting.
       Accesses NetCDF-4 files hosted in Hyrax cloud service (OPeNDAP), and retrieves the requested list of variables,
       plus all those that are required to support meaningful downstream operations upon those data (e.g. associated coordinate variables).
-    data_operation_version: '0.17.0'
+    data_operation_version: '0.20.0'
     type:
       <<: *default-turbo-config
       params:
@@ -575,14 +875,15 @@ https://cmr.uat.earthdata.nasa.gov:
         - application/x-netcdf4
     steps:
       - image: !Env ${QUERY_CMR_IMAGE}
-      - image: !Env ${VAR_SUBSETTER_IMAGE}
+        is_sequential: true
+      - image: !Env ${HOSS_IMAGE}
         operations: ['variableSubset']
 
   - name: sds/maskfill
     description: |
       The service takes input HDF-5 or GeoTIFF file and GeoJSON shape file,
       masks science (non-coordinate) variables such that pixel values outside of the GeoJSON shape are set to a fill value.
-    data_operation_version: '0.17.0'
+    data_operation_version: '0.20.0'
     type:
       <<: *default-turbo-config
       params:
@@ -596,6 +897,7 @@ https://cmr.uat.earthdata.nasa.gov:
         shape: true
     steps:
       - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
       - image: !Env ${SDS_MASKFILL_IMAGE}
 
   - name: sds/trajectory-subsetter
@@ -603,7 +905,7 @@ https://cmr.uat.earthdata.nasa.gov:
       A service that supports L2 segmented trajectory (**not swath**) data.
       Currently uses the same C++ binary as is on-premises in SDPS, to offer variable, temporal, bounding box spatial and polygon spatial subsetting.
       **This subsetter also ensures valid segment indices and sizes following transformation.**
-    data_operation_version: '0.17.0'
+    data_operation_version: '0.20.0'
     type:
       <<: *default-turbo-config
       params:
@@ -622,6 +924,7 @@ https://cmr.uat.earthdata.nasa.gov:
         - application/x-hdf
     steps:
       - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
       - image: !Env ${TRAJECTORY_SUBSETTER_IMAGE}
         operations: ['variableSubset', 'spatialSubset', 'shapefileSubset', 'temporalSubset']
 
@@ -631,12 +934,12 @@ https://cmr.uat.earthdata.nasa.gov:
   - name: harmony/example
     description: |
       An example service for testing harmony http service integration. This service isn't docker-based or make GDAL calls - it does not actually do anything with the data files.
-    data_operation_version: '0.17.0'
+    data_operation_version: '0.20.0'
     enabled: !Env ${EXAMPLE_SERVICES}
     type:
       name: http
       params:
-        url: http://localhost:4000/example/harmony
+        url: http://127.0.0.1:4000/example/harmony
     umm_s: S1233603903-EEDTEST
     capabilities:
       subsetting:
@@ -646,15 +949,40 @@ https://cmr.uat.earthdata.nasa.gov:
         - image/tiff
       reprojection: true
 
-  # UAT GDAL
+  - name: net2cog
+    description: |
+      Converts NetCDF files to COG. Includes extension for running in NASA Harmony. https://github.com/podaac/net2cog
+    data_operation_version: '0.20.0'
+    type:
+      <<: *default-turbo-config
+      params:
+        <<: *default-turbo-params
+        env:
+          <<: *default-turbo-env
+          STAGING_PATH: public/harmony/net2cog
+    umm_s: S1268612173-POCLOUD
+    capabilities:
+      subsetting:
+        variable: true
+      output_formats:
+        # According to https://github.com/opengeospatial/CloudOptimizedGeoTIFF/issues/1 "image/tiff; application=geotiff; profile=cloud-optimized" is the media type that should be used for COG.
+        # pystac agrees https://pystac.readthedocs.io/en/stable/api/media_type.html
+        # Harmony only matches on the part before the first semi-colon
+        - image/tiff
+    steps:
+      - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
+      - image: !Env ${NET2COG_IMAGE}
+
+
   - name: nasa/harmony-gdal-adapter
     description: |
       Service translating Harmony operations to GDAL commands.
       Supports spatial bounding box, temporal, variable, and shapefile, reprojection,
-      and output to NetCDF4, COG, PNG, and GIF.
+      and output to NetCDF4 or COG.
       Operates on input file types supported by GDAL (most EOSDIS data).
       Most operations assume L3 data, though it is likely that some work on L2.
-    data_operation_version: '0.17.0'
+    data_operation_version: '0.20.0'
     type:
       <<: *default-turbo-config
       params:
@@ -673,11 +1001,10 @@ https://cmr.uat.earthdata.nasa.gov:
       output_formats:
         - application/x-netcdf4
         - image/tiff
-        - image/png
-        - image/gif
       reprojection: true
     steps:
       - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
       - image: !Env ${HARMONY_GDAL_ADAPTER_IMAGE}
 
   - name: sds/HyBIG
@@ -687,7 +1014,7 @@ https://cmr.uat.earthdata.nasa.gov:
       JPEG outputs. This includes, where necessary, conversion to a GIBS
       supported Coordinate Reference System (CRS). Other projections can be
       requested, but will not be compatible with GIBS.
-    data_operation_version: '0.17.0'
+    data_operation_version: '0.20.0'
     type:
       <<: *default-turbo-config
       params:
@@ -701,13 +1028,42 @@ https://cmr.uat.earthdata.nasa.gov:
         bbox: false
         shape: false
         temporal: false
+        variable: true
+        multiple_variable: false
       output_formats:
         - image/png
         - image/jpeg
       reprojection: true
     steps:
       - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
       - image: !Env ${HYBIG_IMAGE}
+
+  - name: sds/harmony-smap-l2-gridder
+    description: |
+      Harmony SMAP L2 Gridding Service. Takes L2G trajectories and reformats the data into the appropriate gridded output.
+    data_operation_version: '0.20.0'
+    type:
+      <<: *default-turbo-config
+      params:
+        <<: *default-turbo-params
+        env:
+          <<: *default-turbo-env
+          STAGING_PATH: public/sds/harmony-smap-l2-gridder
+    umm_s: S1272606802-EEDTEST
+    capabilities:
+      concatenation: false
+      subsetting:
+        bbox: false
+        variable: false
+        temporal: false
+      output_formats:
+        - application/x-netcdf4
+      reprojection: true
+    steps:
+      - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
+      - image: !Env ${HARMONY_SMAP_L2_GRIDDER_IMAGE}
 
   # CHAINED SERVICES BELOW HERE
   - name: sds/HOSS-geographic
@@ -718,7 +1074,7 @@ https://cmr.uat.earthdata.nasa.gov:
       plus all those that are required to support meaningful downstream operations upon those data (e.g. associated coordinate variables).
 
       This service is currently operated from the same Docker image as the sds/variable-subsetter service.
-    data_operation_version: '0.17.0'
+    data_operation_version: '0.20.0'
     type:
       <<: *default-turbo-config
       params:
@@ -739,7 +1095,8 @@ https://cmr.uat.earthdata.nasa.gov:
         - application/x-netcdf4
     steps:
       - image: !Env ${QUERY_CMR_IMAGE}
-      - image: !Env ${VAR_SUBSETTER_IMAGE}
+        is_sequential: true
+      - image: !Env ${HOSS_IMAGE}
         operations: ['variableSubset', 'spatialSubset', 'dimensionSubset', 'shapefileSubset', 'temporalSubset']
       - image: !Env ${SDS_MASKFILL_IMAGE}
         operations: ['shapefileSubset']
@@ -754,7 +1111,7 @@ https://cmr.uat.earthdata.nasa.gov:
       plus all those that are required to support meaningful downstream operations upon those data (e.g. associated coordinate variables).
 
       This service is currently operated from the same Docker image as the sds/variable-subsetter service.
-    data_operation_version: '0.17.0'
+    data_operation_version: '0.20.0'
     type:
       <<: *default-turbo-config
       params:
@@ -775,7 +1132,8 @@ https://cmr.uat.earthdata.nasa.gov:
         - application/x-netcdf4
     steps:
       - image: !Env ${QUERY_CMR_IMAGE}
-      - image: !Env ${VAR_SUBSETTER_IMAGE}
+        is_sequential: true
+      - image: !Env ${HOSS_IMAGE}
         operations: ['variableSubset', 'spatialSubset', 'dimensionSubset', 'shapefileSubset', 'temporalSubset']
       - image: !Env ${SDS_MASKFILL_IMAGE}
         operations: ['shapefileSubset', 'spatialSubset']
@@ -786,7 +1144,7 @@ https://cmr.uat.earthdata.nasa.gov:
     description: |
       Converts NetCDF4 files to the Zarr format as faithfully as possible, preserving metadata.
       The service attempts to optimize chunking in both time and space via heuristic algorithm in the output Zarr store.
-    data_operation_version: '0.17.0'
+    data_operation_version: '0.20.0'
     type:
       <<: *default-turbo-config
       params:
@@ -805,6 +1163,7 @@ https://cmr.uat.earthdata.nasa.gov:
         - application/x-zarr
     steps:
       - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
       - image: !Env ${HARMONY_NETCDF_TO_ZARR_IMAGE}
         is_batched: false
         operations: ['reformat', 'concatenate']
@@ -823,7 +1182,7 @@ https://cmr.uat.earthdata.nasa.gov:
       #### Harmony netcdf-to-zarr service
       Converts NetCDF4 files to the Zarr format as faithfully as possible, preserving metadata.
       The service attempts to optimize chunking in both time and space via heuristic algorithm in the output Zarr store.
-    data_operation_version: '0.17.0'
+    data_operation_version: '0.20.0'
     type:
       <<: *default-turbo-config
       params:
@@ -844,6 +1203,7 @@ https://cmr.uat.earthdata.nasa.gov:
         - application/x-zarr
     steps:
       - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
       - image: !Env ${PODAAC_L2_SUBSETTER_IMAGE}
         operations: ['spatialSubset', 'variableSubset', 'temporalSubset']
         conditional:
@@ -854,11 +1214,11 @@ https://cmr.uat.earthdata.nasa.gov:
         conditional:
           format: ['application/x-zarr']
 
-  - name: harmony/swot-repr-netcdf-to-zarr
+  - name: harmony/swath-projector-netcdf-to-zarr
     description: |
-      ### Chained Service of the SDS SWOT reprojection and Harmony netcdf-to-zarr services.
+      ### Chained Service of the SDS Swath Projection and Harmony netcdf-to-zarr services.
 
-      #### SDS SWOT reprojection service
+      #### SDS Swath Projector service
       Takes NetCDF-4 input files and projects input swath variables to an output grid.
       Target CRS, output grid dimensions, extents and/or resolutions can be specified in the Harmony request.
 
@@ -866,14 +1226,14 @@ https://cmr.uat.earthdata.nasa.gov:
       Converts NetCDF4 files to the Zarr format as faithfully as possible, preserving metadata.
       The service attempts to optimize chunking in both time and space via heuristic algorithm in the output Zarr store.
 
-    data_operation_version: '0.17.0'
+    data_operation_version: '0.20.0'
     type:
       <<: *default-turbo-config
       params:
         <<: *default-turbo-params
         env:
           <<: *default-turbo-env
-          STAGING_PATH: public/harmony/swot-repr-netcdf-to-zarr
+          STAGING_PATH: public/harmony/swath-projector-netcdf-to-zarr
     umm_s: S1240999847-EEDTEST
     maximum_sync_granules: 0
     capabilities:
@@ -889,7 +1249,8 @@ https://cmr.uat.earthdata.nasa.gov:
       reprojection: true
     steps:
       - image: !Env ${QUERY_CMR_IMAGE}
-      - image: !Env ${SWOT_REPROJECT_IMAGE}
+        is_sequential: true
+      - image: !Env ${SWATH_PROJECTOR_IMAGE}
         operations: ['reproject']
         conditional:
           exists: ['reproject']
@@ -903,7 +1264,7 @@ https://cmr.uat.earthdata.nasa.gov:
     description: |
       Reference service that can be used to perform most operations supported by Harmony.
       Useful for testing new API features end-to-end on example data but not meant for production use.
-    data_operation_version: '0.17.0'
+    data_operation_version: '0.20.0'
     type:
       <<: *default-turbo-config
       params:
@@ -927,4 +1288,97 @@ https://cmr.uat.earthdata.nasa.gov:
       reprojection: true
     steps:
       - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
       - image: !Env ${HARMONY_SERVICE_EXAMPLE_IMAGE}
+
+  - name: l2-subsetter-batchee-stitchee-concise
+    description: |
+      ### Subsetter And Multi-dimensional Batched Aggregation in Harmony (SAMBAH)
+      Chained Service of the L2-subsetter, Batchee, STITCHEE, and CONCISE services.
+      Additional documentation [here](https://stitchee.readthedocs.io/en/latest/sambah_readme/).
+      #### L2 swath subsetter (L2-subsetter)
+      * Works with trajectory (1D) and along track/across track data.
+      * Works with netCDF and HDF5 input files.
+      * Supports variable subsetting.
+      * Supports temporal subsetting.
+      * Supports shape subsetting
+      * Works with hierarchical groups.
+      * Outputs netCDF4.
+      #### Batchee
+      * Service groups together filenames so that further operations (such as concatenation) can be performed separately on each group of files.
+      #### STITCH by Extending a dimEnsion (Stitchee)
+      * Service concatenates a group of netCDF data files along an existing dimension.
+      #### CONCatenation SErvice (CONCISE)
+      * Service capable of "concatenating" multiple netCDF files into a single netCDF file.
+      The resulting file has an extra dimension with size equal to the number of input files, where each slice in that dimension corresponds to the data from one of the input files.
+      The resulting file has an extra dimension with size equal to the number of input files, where each slice in that dimension corresponds to the data from one of the input files.
+    data_operation_version: '0.20.0'
+    type:
+      <<: *default-turbo-config
+      params:
+        <<: *default-turbo-params
+        env:
+          <<: *default-turbo-env
+          STAGING_PATH: public/asdc-trade/l2-subsetter-batchee-stitchee-concise
+    umm_s: S1262025641-LARC_CLOUD
+    capabilities:
+      concatenation: true
+      concatenate_by_default: false
+      extend: true
+      default_extend_dimensions: ['mirror_step']
+      subsetting:
+        bbox: true
+        variable: true
+        temporal: true
+        shape: true
+      output_formats:
+        - application/netcdf4
+      reprojection: false
+    steps:
+      - image: !Env ${QUERY_CMR_IMAGE}
+        is_sequential: true
+      - image: !Env ${PODAAC_L2_SUBSETTER_IMAGE}
+        operations: ['spatialSubset', 'shapefileSubset', 'variableSubset', 'temporalSubset']
+        conditional:
+          exists: ['spatialSubset', 'shapefileSubset', 'variableSubset', 'temporalSubset']
+        extra_args:
+          cut: false
+      - image: !Env ${BATCHEE_IMAGE}
+        operations: ['concatenate']
+        conditional:
+          exists: ['concatenate']
+      - image: !Env ${STITCHEE_IMAGE}
+        operations: ['extend']
+        conditional:
+          exists: ['concatenate']
+      - image: !Env ${PODAAC_CONCISE_IMAGE}
+        is_batched: true
+        operations: ['concatenate']
+        conditional:
+          exists: ['concatenate']
+
+  - name: asf/opera-rtc-s1-browse
+    description: Service that generates GIBS-compliant browse imagery for the OPERA_L2_RTC-S1 collection
+    data_operation_version: '0.20.0'
+    type:
+      <<: *default-turbo-config
+      params:
+        <<: *default-turbo-params
+        env:
+          <<: *default-turbo-env
+          STAGING_PATH: public/asf/opera-rtc-s1-browse
+    umm_s: S1271728813-ASF
+    maximum_sync_granules: 0
+    capabilities:
+      concatenation: false
+      subsetting:
+        bbox: false
+        variable: false
+        temporal: false
+      output_formats:
+        - image/png
+      reprojection: true
+    steps:
+      - image: !Env ${QUERY_CMR_IMAGE}
+      - image: !Env ${OPERA_RTC_S1_BROWSE_IMAGE}
+      - image: !Env ${HYBIG_IMAGE}

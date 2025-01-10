@@ -17,7 +17,7 @@ spec:
       containers:
         - name: harmony
           imagePullPolicy: IfNotPresent
-          image: harmonyservices/harmony:latest
+          image: $HARMONY_IMAGE
           command:
             - "/harmony/bin/start-harmony-in-container"
           envFrom:
@@ -28,6 +28,10 @@ spec:
           ports:
             - containerPort: 3000
             - containerPort: 3001
+          readinessProbe:
+            httpGet:
+              path: /readiness
+              port: 3000
 ---
 apiVersion: v1
 kind: Service

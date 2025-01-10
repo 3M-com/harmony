@@ -8,7 +8,7 @@ For developing Harmony on _**Windows**_ follow this document as well as the info
 
 Required:
 * A local copy of this repository.  Using `git clone` is strongly recommended
-* Node.js version 16.  We strongly recommend installing [NVM](https://github.com/nvm-sh/nvm) to add and manage node versions.
+* Node.js version 22.  We strongly recommend installing [NVM](https://github.com/nvm-sh/nvm) to add and manage node versions.
 * Mac OSX, Linux, or similar command line tooling.  Harmony is tested to run on OSX >= 10.14 and Amazon Linux 2.  Command-line instructions and bash helper files under [bin/](bin/) are tested on OSX >= 10.14.
 * [git](https://git-scm.com) - Used to clone this repository
 * Mac:
@@ -22,7 +22,7 @@ Required:
 * The [AWS CLI](https://aws.amazon.com/cli/) - Used to interact with both localstack and real AWS accounts
 * [SQLite3 commandline](https://sqlite.org/index.html) - Used to create the local development and test databases. Install using your OS package manager, or [download precompiled binaries from SQLite](https://www.sqlite.org/download.html)
 * PostgreSQL (required by the pg-native library) - `brew install postgresql` on OSX
-* [Earthdata Login application in UAT](../edl-requirement.md)
+* [Earthdata Login application in UAT](../edl-application.md)
 * [envsubst](https://pypi.org/project/envsubst) - Used to substitute environment variable placeholders inside configuration files.
 * [openssl](https://www.openssl.org/) Read [this installation guide](https://github.com/openssl/openssl/blob/master/NOTES-WINDOWS.md) if you're a Windows user and openssl is not installed on your machine already.
 
@@ -32,7 +32,7 @@ Highly Recommended:
 
 Optional:
 * [awscli-local](https://github.com/localstack/awscli-local) - CLI helpers for interacting with localstack
-* [Python](https://www.python.org) version 3.7 - Useful for locally running and testing harmony-docker and other backend services
+* [Python](https://www.python.org) version 3.11 - Useful for locally running and testing harmony-docker and other backend services
 
 ## Set up Environment
 
@@ -63,17 +63,17 @@ or
 arch -x86_64 bash
 ```
 
-Ensure node is available and is the correct version, 16.x.y.
+Ensure node is available and is the correct version, 22.x.y.
 
 ```
 $ node --version
-v16.14.2
+v22.5.1
 ```
 
-Ensure npm is available and is version 8 or later.
+Ensure npm is available and is version 10 or later.
 ```
 $ npm --version
-8.5.0
+9.8.1
 ```
 
 If either are not the correct versions and you are using NVM, install them and ensure your `PATH` is up-to-date by running:
@@ -82,9 +82,9 @@ If either are not the correct versions and you are using NVM, install them and e
 $ nvm install && nvm use
 ```
 
-The output should include node 16 and npm 8.
+The output should include node 22 and npm 10.
 ```
-Now using node v16.14.2 (npm v8.5.0)
+Now using node v22.5.1 (npm v10.8.2)
 ```
 
 Be sure to **verify the version on the final line** to make sure the NVM binary appears first in your `PATH`.
@@ -116,6 +116,8 @@ WORK_ITEM_UPDATE_QUEUE_URL=http://localhost:4566/queue/work-item-update-queue
 LARGE_WORK_ITEM_UPDATE_QUEUE_URL=http://localhost:4566/queue/large-work-item-update-queue
 BACKEND_HOST=host.docker.internal
 CALLBACK_URL_ROOT=http://host.docker.internal:3001
+LOCAL_DEV=true
+
 ```
 
 Linux
@@ -125,6 +127,7 @@ WORK_ITEM_UPDATE_QUEUE_URL=http://localhost:4566/queue/work-item-update-queue
 LARGE_WORK_ITEM_UPDATE_QUEUE_URL=http://localhost:4566/queue/large-work-item-update-queue
 BACKEND_HOST=localhost
 CALLBACK_URL_ROOT=http://localhost:3001
+LOCAL_DEV=true
 ```
 
 ### (minikube only) Configuring the callback URL for backend services
@@ -137,42 +140,43 @@ minikube ssh grep host.minikube.internal /etc/hosts | cut -f1
 
 This should print out an IP address. Use this in your .env file to specify the `CALLBACK_URL_ROOT` value, e.g., `CALLBACK_URL_ROOT=http://192.168.65.2:4001`.
 
-## Set Up A Database
+## Run Harmony and Services
 
-To setup a sqlite3 database with the correct schema for local execution, run
-
-```
-$ bin/create-database development
-```
-
-This should be run any time the versioned contents of the `db/db.sql` file change.
-
-This will create a file, `db/development.sqlite3`, which will contain your local data.  You can delete the above file to remove
-all existing development data.
-
-In production environments, we use PostgreSQL and use database migrations to modify the schema.  If you have a PostgreSQL
-database, you can create and/or migrate your database by setting `NODE_ENV=production` and
-`DATABASE_URL=postgresql://your-postgres-connection-url` and running:
-```
-$ npx knex --cwd db migrate:latest
-```
-
-### Set Up and Run Postgres and Localstack
-
-In development Harmony uses [Localstack](https://github.com/localstack/localstack) to avoid allocating AWS resources. Postgres is also installed (but not used by default).
+Harmony and the services can be run using the following:
 
 ```
-$ ./bin/start-postgres-localstack
+./bin/bootstrap-harmony
+./bin/start-dev-services
 ```
 
-This will install Postgres and Localstack and forward their ports to localhost. It will take a few minutes the first time you run it. You will know when it has completed when it prints
+NOTE: You must set `LOCAL_DEV=true` before running these to prevent `bootstrap-harmony` from
+starting harmony and its support services in kubernetes.
+
+The provider services along with postgresql and localstack will now be running in kubernetes,
+while Harmony and its support services will be running as local Node.js processes. Each process
+has a specific port and debug port as shown in the following table:
+
+| Process              | Port | Debug Port |
+|----------------------|------|------------|
+| harmony              | 3000 | 9200       |
+| work-scheduler       | 5001 | 9201       |
+| work-updater (large) | 5002 | 9202       |
+| work-updater (small) | 5003 | 9203       |
+
+## Stopping Harmony and Services
+
+The services running in kubernetes can be stopped using the following (this will also delete
+the `harmony` namespace):
 
 ```
-Localstack has started at http://localhost:4566/
-Postgres has started at localhost:5432
+./bin/stop-harmony-and-services
 ```
 
-To use Postgres instead of sqlite set `NODE_ENV=production` in your .env and run `NODE_ENV=production DATABASE_URL=postgresql://postgres:password@localhost:5432  npx knex --cwd db migrate:latest` to create the latest schema.
+The Node.js processes for Harmony and its support services can be stopped using the following:
+```
+./bin/stop-dev-services
+```
+
 
 ## Add A Service
 
@@ -255,7 +259,7 @@ Harmony uses [eslint](https://eslint.org) as a linter, which can be invoked as `
 Rather than repeatedly perform the same queries against the CMR, our test suite
 uses [node-replay](https://github.com/assaf/node-replay) to record and play back
 HTTP interactions.  All non-localhost interactions are recorded and placed in files
-in the [fixtures directory](../../fixtures/).
+in the [fixtures directory](../../services/harmony/fixtures/).
 
 By default, the test suite will playback interactions it has already seen and
 record any new interactions to new files.  This behavior can be changed by setting
@@ -275,6 +279,13 @@ The image can be deployed to DockerHub using the following commands:
 ```bash
 npm run publish
 ```
+
+## Building Images and Pushing them to the Sandbox ECR
+
+1. Set your AWS profile to the sandbox, e.g., `export AWS_PROFILE=harmony-sandbox`
+2. `VERSION=<some-tag> npm run build-all` (or `VERSION=<some-tag> npm run build-all-m1` if you are building
+    on a Mac M1/M2 machine).
+3. `VERSION=<some-tag> npm run push-image-all`
 
 ## Contributing to Harmony
 
@@ -296,7 +307,7 @@ Request to this repo:
 ## Additional Resources
 
 * [Adapting new services to Harmony](adapting-new-services.md)
-* [Harmony message schemas](../../app/schemas/data-operation)
-* [EOSS protocol OpenAPI Specification](../../app/schemas/eoss)
+* [Harmony message schemas](../../services/harmony/app/schemas/data-operation)
+* [EOSS protocol OpenAPI Specification](../../services/harmony/app/schemas/eoss)
 * [Harmony NetCDF to Zarr service repository](https://github.com/nasa/harmony-netcdf-to-zarr)
 * [Harmony GDAL-based example service repository](https://github.com/nasa/harmony-service-example)

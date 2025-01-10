@@ -17,7 +17,8 @@ CREATE TABLE `jobs` (
   `collectionIds` text not null,
   `ignoreErrors` boolean not null,
   `destination_url` varchar(8192),
-  `service_name` varchar(255)
+  `service_name` varchar(255),
+  `provider_id` varchar(255)
 );
 
 CREATE TABLE `job_links` (
@@ -43,6 +44,34 @@ CREATE TABLE `job_errors` (
   `createdAt` datetime not null,
   `updatedAt` datetime not null,
   FOREIGN KEY(jobID) REFERENCES jobs(jobID)
+);
+
+CREATE TABLE `raw_labels` (
+  `id` integer not null primary key autoincrement,
+  `value` varchar(255) not null,
+  `createdAt` datetime not null,
+  `updatedAt` datetime not null,
+  UNIQUE(value)
+);
+
+CREATE TABLE `jobs_raw_labels` (
+  `id` integer not null primary key autoincrement,
+  `job_id` char(36) not null,
+  `label_id` integer not null,
+  `createdAt` datetime not null,
+  `updatedAt` datetime not null,
+  FOREIGN KEY(job_id) REFERENCES jobs(jobID)
+  FOREIGN KEY(label_id) REFERENCES raw_labels(id)
+  UNIQUE(job_id, label_id)
+);
+
+CREATE TABLE `users_labels` (
+  `id` integer not null primary key autoincrement,
+  `username` varchar(255) not null,
+  `value` varchar(255) not null,
+  `createdAt` datetime not null,
+  `updatedAt` datetime not null,
+  UNIQUE(username, value)
 );
 
 CREATE TABLE `work_items` (
@@ -73,9 +102,13 @@ CREATE TABLE `workflow_steps` (
   `workItemCount` integer not null,
   `hasAggregatedOutput` boolean not null default false,
   `isBatched` boolean not null default false,
+  `is_complete` boolean not null default false,
+  `is_sequential` boolean not null default false,
   `maxBatchInputs` integer,
   `maxBatchSizeInBytes` integer,
   `operation` text not null,
+  `completed_work_item_count` integer not null default 0,
+  `progress_weight` float not null default 1.0,
   `createdAt` datetime not null,
   `updatedAt` datetime not null,
   FOREIGN KEY(jobID) REFERENCES jobs(jobID),
@@ -120,10 +153,35 @@ CREATE TABLE `user_work` (
   UNIQUE(job_id, service_id)
 );
 
+CREATE TABLE `service_deployment` (
+  `enabled` boolean,
+  `message` varchar(4096),
+  `updatedAt` datetime not null
+);
+
+INSERT INTO service_deployment (enabled, message, updatedAt) VALUES (true, '', CURRENT_TIMESTAMP);
+
+CREATE TABLE `service_deployments` (
+  `id` integer not null primary key autoincrement,
+  `deployment_id` char(36) not null,
+  `username` varchar(255) not null,
+  `service` varchar(255) not null,
+  `tag` varchar(255) not null,
+  `regression_test_version` varchar(255),
+  `status` text check (`status` in ('running', 'successful', 'failed')) not null,
+  `message` varchar(4096),
+  `createdAt` datetime not null,
+  `updatedAt` datetime not null
+);
+
+-- Note this is not a full list of the indices, we rely on the database migrations to create
+-- all the indexes in Postgres
 CREATE INDEX jobs_jobID_idx ON jobs(jobID);
 CREATE INDEX jobs_updatedAt_id ON jobs(updatedAt);
-CREATE INDEX jobs_username_idx ON jobs(username);
+CREATE INDEX jobs_status_idx ON jobs(status);
+CREATE INDEX jobs_username_idx ON jobs(jobID, username);
 CREATE INDEX job_links_jobID_idx ON job_links(jobID);
+CREATE INDEX job_links_jobID_id_idx ON job_links(jobID, id);
 CREATE INDEX job_errors_jobID_idx ON job_errors(jobID);
 CREATE INDEX work_items_jobID_idx ON work_items(jobID);
 CREATE INDEX work_items_serviceID_idx ON work_items(serviceID);
@@ -133,3 +191,4 @@ CREATE INDEX workflow_steps_jobID_StepIndex_idx ON workflow_steps(jobID, stepInd
 CREATE INDEX workflow_steps_serviceID_idx ON workflow_steps(serviceID);
 CREATE INDEX batch_jobID_service_ID_batchID ON batches(jobID, serviceID, batchID);
 CREATE INDEX batch_items_jobID_service_ID_batchID ON batch_items(jobID, serviceID, batchID);
+CREATE INDEX service_deployments_deployment_id_idx ON service_deployments(deployment_id);

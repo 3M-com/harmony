@@ -5,9 +5,9 @@
  */
 
 import { exit } from 'process';
-import { loadServiceConfigs } from '../app/models/services';
-import { CmrUmmService, cmrApiConfig, getServicesByIds } from '../app/util/cmr';
-import { ServiceConfig } from '../app/models/services/base-service';
+import { loadServiceConfigs } from '../services/harmony/app/models/services';
+import { CmrUmmService, cmrApiConfig, getServicesByIds } from '../services/harmony/app/util/cmr';
+import { ServiceConfig } from '../services/harmony/app/models/services/base-service';
 
 /**
  * Validates spatial subsetting configuration matches
@@ -71,11 +71,20 @@ function validateVariableSubsetting(
  * @returns validation failure message or '' if validation succeeds
  */
 function validateConcatenation(
-  _ummRecord: CmrUmmService, harmonyConfig: ServiceConfig<unknown>,
+  ummRecord: CmrUmmService, harmonyConfig: ServiceConfig<unknown>,
 ): string {
-  const _harmonyConcatenation = harmonyConfig.capabilities.concatenation || false;
-  const _harmonyConcatenateByDefault = harmonyConfig.capabilities.concatenate_by_default || false;
-  return '';
+  const errors = [];
+  const harmonyConcatenation = harmonyConfig.capabilities.concatenation || false;
+  const ummConcatenation = ummRecord.umm?.ServiceOptions?.Aggregation?.Concatenate !== undefined;
+  if (harmonyConcatenation !== ummConcatenation) {
+    errors.push(`Concatenation mismatch: harmony is ${harmonyConcatenation} and UMM-S is ${ummConcatenation}.`);
+  }
+  const harmonyConcatenateByDefault = harmonyConfig.capabilities.concatenate_by_default || false;
+  const ummConcatenateDefault = ummRecord.umm?.ServiceOptions?.Aggregation?.Concatenate?.ConcatenateDefault || false;
+  if (ummConcatenateDefault !== harmonyConcatenateByDefault) {
+    errors.push(`Concatenate by default mismatch: harmony is ${harmonyConcatenateByDefault} and UMM-S is ${ummConcatenateDefault}.`);
+  }
+  return errors.join(' ');
 }
 
 /**
@@ -96,7 +105,7 @@ function validateReprojection(
   return '';
 }
 
-const allValidations = [
+export const allValidations = [
   validateSpatialSubsetting,
   validateShapefileSubsetting,
   validateVariableSubsetting,
@@ -149,16 +158,37 @@ async function runComparisons(environments = allEnvironments): Promise<void> {
     console.log(`*** Running service comparison for ${environment}`);
     cmrApiConfig.useToken = false;
     cmrApiConfig.baseURL = environment;
-    const harmonyServiceConfigs = loadServiceConfigs(environment);
+    const harmonyServiceConfigs = loadServiceConfigs(environment)
+      .filter((config) => config.umm_s); // Ignore any service definitions that do not point to a UMM-S record
     const ummConceptIds = harmonyServiceConfigs.map((config) => config.umm_s);
-    const ummRecords = await getServicesByIds(ummConceptIds, null);
+    const ummRecords = await getServicesByIds({ id: 'harmony-service-comparison-script' }, ummConceptIds, null);
     const ummRecordsMap = createUmmRecordsMap(ummRecords);
     for (const harmonyConfig of harmonyServiceConfigs) {
       const ummRecord = ummRecordsMap[harmonyConfig.umm_s];
       const validationMessages = performValidations(ummRecord, harmonyConfig);
       if (validationMessages.length > 0) {
-        exitCode = 1;
-        console.log(`Validation failures for ${harmonyConfig.name} and ${ummRecord.meta['concept-id']}:\n    - ${validationMessages.join('\n    - ')}`);
+        // For SAMBAH we're allowing for a difference in concatenate_by_default since for API
+        // users they want that to be false, but in EDSC they want the default to be to have the
+        // box checked.
+        if (harmonyConfig.name == 'l2-subsetter-batchee-stitchee-concise') {
+          // only _warn_ about concatenate by default difference - other messages are actual errors
+          const failureMessages = validationMessages.reduce((acc, message) => {
+            if (message != 'Concatenate by default mismatch: harmony is false and UMM-S is true.') {
+              acc.push(message);
+            } else {
+              console.log(`WARNING: ${harmonyConfig.name} and ${ummRecord.meta['concept-id']} differ:\n    - ${message}`);
+            }
+            return acc;
+          }, []);
+
+          if (failureMessages.length > 0) {
+            exitCode = 1;
+            console.log(`ERROR: Validation failures for ${harmonyConfig.name} and ${ummRecord.meta['concept-id']}:\n    - ${failureMessages.join('\n    - ')}`);
+          }
+        } else {
+          exitCode = 1;
+          console.log(`ERROR: Validation failures for ${harmonyConfig.name} and ${ummRecord.meta['concept-id']}:\n    - ${validationMessages.join('\n    - ')}`);
+        }
       }
     }
   }
